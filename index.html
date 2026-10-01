@@ -75,6 +75,9 @@ textarea{min-height:320px;font-family:ui-monospace,Menlo,Consolas,monospace;font
 #dlg{position:fixed;inset:0;background:rgba(10,12,20,.82);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:max(16px,env(safe-area-inset-top)) 14px calc(16px + env(safe-area-inset-bottom));z-index:50}
 #dlg .box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;max-width:760px;width:100%}
 #dlg img{display:block;max-width:100%;height:auto;border:1px solid var(--line);border-radius:6px;background:#fff}
+.credit{text-align:center;color:var(--muted);font-size:12px;padding:6px 20px 28px;max-width:1100px;margin:0 auto}
+.pt,.pt>tbody,.pt>tbody>tr,.pt>tbody>tr>td{display:block}
+.pt>tfoot{display:none}
 .back{display:none}
 #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s}
 #toast.show{opacity:1}
@@ -85,7 +88,9 @@ textarea{min-height:320px;font-family:ui-monospace,Menlo,Consolas,monospace;font
 .back{display:inline-block}
 .two{grid-template-columns:1fr 1fr}.two .fld:first-child{grid-column:1/-1}
 }
-@media print{header,aside,.bar,.noprint,#dlg{display:none!important}.app{display:block;padding:0}.panel{border:0;padding:0}body{background:#fff;color:#000}.song .c{color:#000}body:not(.ps) #shp{display:none!important}.cd{break-inside:avoid}}
+@page{margin:12mm}
+@media print{header,aside,.bar,.noprint,#dlg,#toast,.back,.credit{display:none!important}.app{display:block;padding:0}.panel{border:0;padding:0}body{background:#fff;color:#000}.song .c{color:#000}body:not(.ps) #shp{display:none!important}.cd{break-inside:avoid}.pt{display:table;width:100%}.pt>tbody{display:table-row-group}.pt>tbody>tr{display:table-row}.pt>tbody>tr>td{display:table-cell}
+.pt>tfoot{display:table-footer-group}.pf{padding-top:10px;text-align:center;font-size:10px;color:#777}}
 </style>
 </head>
 <body>
@@ -112,6 +117,7 @@ textarea{min-height:320px;font-family:ui-monospace,Menlo,Consolas,monospace;font
 <div id="empty" class="panel">Pick a song from the list, or add a new one.</div>
 
 <section id="song" class="panel" hidden>
+<table class="pt"><tbody><tr><td>
 <button class="btn back" id="back1">Back to songs</button>
 <h2 id="t" style="margin-top:8px"></h2>
 <div id="a" class="note" style="margin:2px 0 0"></div>
@@ -136,6 +142,7 @@ textarea{min-height:320px;font-family:ui-monospace,Menlo,Consolas,monospace;font
 </div>
 <div class="shapes" id="shp" hidden></div>
 <div class="song" id="body"></div>
+</td></tr></tbody><tfoot><tr><td class="pf">Made by Kurt Gacusana</td></tr></tfoot></table>
 </section>
 
 <section id="edit" class="panel" hidden>
@@ -180,6 +187,7 @@ textarea{min-height:320px;font-family:ui-monospace,Menlo,Consolas,monospace;font
 </section>
 </main>
 </div>
+<footer class="credit">Made by Kurt Gacusana</footer>
 <div id="dlg" hidden role="dialog" aria-modal="true" aria-label="Song image"><div class="box">
 <div class="row" style="margin-bottom:10px"><button class="btn pri" id="dshare">Share or save</button><button class="btn" id="ddl">Download</button><span style="flex:1"></span><button class="btn" id="dclose">Close</button></div>
 <img id="pv" alt="Song as an image">
@@ -523,7 +531,7 @@ function exportImage(){
   const shapesH=list.length?Math.ceil(list.length/cols)*cellH+12:0;
   const key=$('#ki').textContent,head=46+(s.artist?26:0)+(key?26:0)+12;
   const bodyH=lines.reduce((a,l,i)=>a+lh+(l[0]==='s'&&i?Math.round(lh*.6):0),0);
-  const H=pad+head+shapesH+bodyH+pad;
+  const H=pad+head+shapesH+bodyH+pad+8;
   const cv=document.createElement('canvas');cv.width=W*K;cv.height=H*K;
   const c=cv.getContext('2d');c.scale(K,K);
   c.fillStyle='#fff';c.fillRect(0,0,W,H);c.textBaseline='top';c.textAlign='left';
@@ -546,6 +554,7 @@ function exportImage(){
     else{c.fillStyle='#111';c.font=`${font}px ${mono}`}
     c.fillText(x,pad,y);y+=lh;
   });
+  c.fillStyle='#8a90a2';c.font='12px system-ui,sans-serif';c.textAlign='right';c.fillText('Made by Kurt Gacusana',W-pad,y+14);c.textAlign='left';
   const o=parseKey(s.key),kn=o?(o.minor?Km:KM)[(o.i+n)%12]:'';
   imgName=(s.title.replace(/[\\\/:*?"<>|]/g,'').trim()||'song')+(kn?' - '+kn:'');
   cv.toBlob(b=>{
