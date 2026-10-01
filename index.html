@@ -72,6 +72,9 @@ textarea{min-height:320px;font-family:ui-monospace,Menlo,Consolas,monospace;font
 .pills{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 14px}
 #chords h3{font:700 18px Georgia,serif;margin:24px 0 8px}
 #chords li{margin:5px 0}
+#dlg{position:fixed;inset:0;background:rgba(10,12,20,.82);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:max(16px,env(safe-area-inset-top)) 14px calc(16px + env(safe-area-inset-bottom));z-index:50}
+#dlg .box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;max-width:760px;width:100%}
+#dlg img{display:block;max-width:100%;height:auto;border:1px solid var(--line);border-radius:6px;background:#fff}
 .back{display:none}
 #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s}
 #toast.show{opacity:1}
@@ -82,7 +85,7 @@ textarea{min-height:320px;font-family:ui-monospace,Menlo,Consolas,monospace;font
 .back{display:inline-block}
 .two{grid-template-columns:1fr 1fr}.two .fld:first-child{grid-column:1/-1}
 }
-@media print{header,aside,.bar,.noprint{display:none!important}.app{display:block;padding:0}.panel{border:0;padding:0}body{background:#fff;color:#000}.song .c{color:#000}body:not(.ps) #shp{display:none!important}.cd{break-inside:avoid}}
+@media print{header,aside,.bar,.noprint,#dlg{display:none!important}.app{display:block;padding:0}.panel{border:0;padding:0}body{background:#fff;color:#000}.song .c{color:#000}body:not(.ps) #shp{display:none!important}.cd{break-inside:avoid}}
 </style>
 </head>
 <body>
@@ -126,7 +129,8 @@ textarea{min-height:320px;font-family:ui-monospace,Menlo,Consolas,monospace;font
 <button class="btn" id="sp">Chord shapes</button>
 <button class="btn" id="sh">Share</button>
 <button class="btn" id="cp">Copy</button>
-<label class="grp" style="font-size:14px;cursor:pointer"><input type="checkbox" id="pss" style="width:auto;padding:0"> Print with shapes</label>
+<label class="grp" style="font-size:14px;cursor:pointer"><input type="checkbox" id="pss" style="width:auto;padding:0"> Shapes in print and image</label>
+<button class="btn" id="xi">Save as image</button>
 <button class="btn" id="pr">Print</button>
 <button class="btn" id="ed">Edit</button>
 </div>
@@ -176,6 +180,11 @@ textarea{min-height:320px;font-family:ui-monospace,Menlo,Consolas,monospace;font
 </section>
 </main>
 </div>
+<div id="dlg" hidden role="dialog" aria-modal="true" aria-label="Song image"><div class="box">
+<div class="row" style="margin-bottom:10px"><button class="btn pri" id="dshare">Share or save</button><button class="btn" id="ddl">Download</button><span style="flex:1"></span><button class="btn" id="dclose">Close</button></div>
+<img id="pv" alt="Song as an image">
+<p class="note">On a phone you can also press and hold the picture and choose Save to Photos.</p>
+</div></div>
 <div id="toast" role="status"></div>
 
 <script>
@@ -459,20 +468,104 @@ function slashShape(r,q,b){
   }
   return best;
 }
-function songShapes(lines){
+function shapeList(lines){
   const seen=[];
   for(const [t,x] of lines)if(t==='c')for(const c of x.split(/\s+/))if(CH.test(c)&&!seen.includes(c))seen.push(c);
   return seen.map(c=>{
     const m=c.match(/^([A-G][#b]?)(.*?)(?:\/([A-G][#b]?))?$/),q=m&&QMAP[m[2]];
-    return q?cardFr(c,m[3]?slashShape(IDX[m[1]],q,IDX[m[3]]):shapeFor(IDX[m[1]],q),m[3]?'Bass note '+m[3]:''):'';
-  }).join('');
+    return q?{name:c,fr:m[3]?slashShape(IDX[m[1]],q,IDX[m[3]]):shapeFor(IDX[m[1]],q),sub:m[3]?'Bass note '+m[3]:''}:null;
+  }).filter(Boolean);
 }
+function songShapes(lines){return shapeList(lines).map(o=>cardFr(o.name,o.fr,o.sub)).join('')}
 $('#gc').onclick=()=>{renderChords();view('chords')};
 $('#back3').onclick=()=>cur&&get(cur)?openSong(cur):view('list');
 $('#rp').addEventListener('click',e=>{const b=e.target.closest('button');if(b){gr=+b.dataset.r;renderChords()}});
 $('#sp').onclick=()=>{showShapes=!showShapes;showSong()};
 $('#pss').checked=rd('wc_ps',false);document.body.classList.toggle('ps',$('#pss').checked);
 $('#pss').onchange=e=>{document.body.classList.toggle('ps',e.target.checked);wr('wc_ps',e.target.checked)};
+
+/* ---------- save as image ---------- */
+let imgBlob=null,imgUrl=null,imgName='song';
+function drawShape(c,fr,x,y,k){
+  c.save();
+  const fx=fr.filter(v=>v>0),mn=fx.length?Math.min(...fx):1,mx=fx.length?Math.max(...fx):1,base=mx<=5?1:mn,X0=24,SP=12.5,Y0=24,FH=15;
+  const X=v=>x+v*k,Y=v=>y+v*k,ry=r=>Y0+(r-base)*FH+FH/2;
+  c.strokeStyle='#8a90a2';c.lineWidth=.8*k;
+  for(let r=0;r<=5;r++){c.beginPath();c.moveTo(X(X0),Y(Y0+r*FH));c.lineTo(X(X0+5*SP),Y(Y0+r*FH));c.stroke()}
+  for(let i=0;i<6;i++){c.beginPath();c.moveTo(X(X0+i*SP),Y(Y0));c.lineTo(X(X0+i*SP),Y(Y0+5*FH));c.stroke()}
+  if(base===1){c.fillStyle='#1b2233';c.fillRect(X(X0-1),Y(Y0-3),(SP*5+2)*k,4*k)}
+  else{c.fillStyle='#667089';c.font=`${10*k}px system-ui,sans-serif`;c.textAlign='left';c.textBaseline='middle';c.fillText(base+'fr',X(0),Y(Y0+FH/2))}
+  const bar=!fr.includes(0)&&fx.length>1&&fr.filter(v=>v===mn).length>1;
+  c.fillStyle='#4338ca';
+  if(bar){
+    const a=fr.indexOf(mn),b=fr.lastIndexOf(mn);
+    c.beginPath();
+    if(c.roundRect)c.roundRect(X(X0+a*SP-5),Y(ry(mn)-5),(b-a)*SP*k+10*k,10*k,5*k);else c.rect(X(X0+a*SP-5),Y(ry(mn)-5),(b-a)*SP*k+10*k,10*k);
+    c.fill();
+  }
+  fr.forEach((f,i)=>{
+    const cx=X0+i*SP;
+    if(f<0){c.fillStyle='#667089';c.font=`${12*k}px system-ui,sans-serif`;c.textAlign='center';c.textBaseline='middle';c.fillText('×',X(cx),Y(Y0-8))}
+    else if(f===0){c.strokeStyle='#667089';c.lineWidth=k;c.beginPath();c.arc(X(cx),Y(Y0-11),3.5*k,0,7);c.stroke()}
+    else if(!(bar&&f===mn)){c.fillStyle='#4338ca';c.beginPath();c.arc(X(cx),Y(ry(f)),5*k,0,7);c.fill()}
+  });
+  c.restore();
+}
+function exportImage(){
+  const s=get(cur);if(!s)return;
+  const shift=n-capo,lines=render(s.text,shift,flatFor(shift,s));
+  const K=2,font=Math.round(fs*1.15),lh=Math.round(font*1.4),pad=36,mono='ui-monospace,Menlo,Consolas,monospace';
+  const probe=document.createElement('canvas').getContext('2d');probe.font=`${font}px ${mono}`;
+  const cw=probe.measureText('M').width;
+  const W=Math.max(560,Math.ceil(Math.max(0,...lines.map(l=>l[1].length))*cw)+pad*2);
+  const list=$('#pss').checked?shapeList(lines):[];
+  const cellW=96,cellH=124,cols=Math.max(1,Math.floor((W-pad*2)/cellW));
+  const shapesH=list.length?Math.ceil(list.length/cols)*cellH+12:0;
+  const key=$('#ki').textContent,head=46+(s.artist?26:0)+(key?26:0)+12;
+  const bodyH=lines.reduce((a,l,i)=>a+lh+(l[0]==='s'&&i?Math.round(lh*.6):0),0);
+  const H=pad+head+shapesH+bodyH+pad;
+  const cv=document.createElement('canvas');cv.width=W*K;cv.height=H*K;
+  const c=cv.getContext('2d');c.scale(K,K);
+  c.fillStyle='#fff';c.fillRect(0,0,W,H);c.textBaseline='top';c.textAlign='left';
+  let y=pad,tf=36;
+  c.font=`bold ${tf}px Georgia,serif`;
+  while(tf>18&&c.measureText(s.title).width>W-pad*2){tf-=2;c.font=`bold ${tf}px Georgia,serif`}
+  c.fillStyle='#1b2233';c.fillText(s.title,pad,y);y+=46;
+  if(s.artist){c.fillStyle='#667089';c.font='18px system-ui,sans-serif';c.fillText(s.artist,pad,y);y+=26}
+  if(key){c.fillStyle='#0f766e';c.font='bold 17px system-ui,sans-serif';c.fillText(key,pad,y);y+=26}
+  y+=6;c.strokeStyle='#dde2ee';c.lineWidth=1;c.beginPath();c.moveTo(pad,y);c.lineTo(W-pad,y);c.stroke();y+=6;
+  list.forEach((o,i)=>{
+    const cx=pad+(i%cols)*cellW,cy=y+Math.floor(i/cols)*cellH;
+    c.fillStyle='#1b2233';c.font='bold 14px system-ui,sans-serif';c.textAlign='center';c.fillText(o.name,cx+cellW/2,cy);c.textAlign='left';
+    drawShape(c,o.fr,cx+3,cy+18,.9);
+  });
+  y+=shapesH;
+  lines.forEach(([t,x],i)=>{
+    if(t==='s'){if(i)y+=Math.round(lh*.6);c.fillStyle='#0f766e';c.font=`bold ${Math.round(font*.85)}px system-ui,sans-serif`}
+    else if(t==='c'){c.fillStyle='#4338ca';c.font=`bold ${font}px ${mono}`}
+    else{c.fillStyle='#111';c.font=`${font}px ${mono}`}
+    c.fillText(x,pad,y);y+=lh;
+  });
+  const o=parseKey(s.key),kn=o?(o.minor?Km:KM)[(o.i+n)%12]:'';
+  imgName=(s.title.replace(/[\\\/:*?"<>|]/g,'').trim()||'song')+(kn?' - '+kn:'');
+  cv.toBlob(b=>{
+    if(!b){toast('Could not make the image');return}
+    imgBlob=b;if(imgUrl)URL.revokeObjectURL(imgUrl);imgUrl=URL.createObjectURL(b);
+    $('#pv').src=imgUrl;$('#dlg').hidden=false;
+  },'image/png');
+}
+$('#xi').onclick=exportImage;
+$('#dclose').onclick=()=>{$('#dlg').hidden=true};
+$('#dlg').addEventListener('click',e=>{if(e.target.id==='dlg')$('#dlg').hidden=true});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')$('#dlg').hidden=true});
+$('#dshare').onclick=async()=>{
+  try{
+    const f=new File([imgBlob],imgName+'.png',{type:'image/png'});
+    if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:imgName});return}
+  }catch(e){if(e&&e.name==='AbortError')return}
+  toast('Press and hold the picture to save it');
+};
+$('#ddl').onclick=()=>{const a=document.createElement('a');a.href=imgUrl;a.download=imgName+'.png';document.body.appendChild(a);a.click();a.remove()};
 
 /* ---------- start ---------- */
 songs=rd(LS,null);if(!songs||!songs.length)songs=[SAMPLE];
