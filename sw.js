@@ -1,6 +1,5 @@
-/* Offline support: serve the app from cache, refresh the cache in the background.
-   Change CACHE (e.g. wc-v2) whenever you upload a new index.html to force an update. */
-const CACHE = 'wc-v2';
+
+const CACHE = 'wc-v3';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
